@@ -3,7 +3,9 @@ require "language/node"
 class FrodoCli < Formula
   desc "Command-line interface to manage ForgeRock Identity Cloud"
   homepage "https://github.com/rockcarver/frodo-cli#readme"
-  url "https://github.com/rockcarver/frodo-cli.git", branch: "main", tag: "v0.23.0"
+  url "https://github.com/rockcarver/frodo-cli.git", 
+    branch: "main", 
+    tag: "v0.23.0"
   license "MIT"
   head "https://github.com/rockcarver/frodo-cli.git", branch: "main"
 

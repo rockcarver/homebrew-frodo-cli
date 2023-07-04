@@ -20,10 +20,10 @@ class FrodoCli < Formula
     system "npm", "install"
     system "npm", "run", "build:binary"
     on_macos do
-      bin.install Dir["#{buildpath}/dist/bin/macos/frodo"]
+      bin.install Dir["#{buildpath}/frodo"]
     end
     on_linux do
-      bin.install Dir["#{buildpath}/dist/bin/linux/frodo"]
+      bin.install Dir["#{buildpath}/frodo"]
     end
   end
 

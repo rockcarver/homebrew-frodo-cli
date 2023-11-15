@@ -1,11 +1,11 @@
 require "language/node"
 
-class FrodoCli < Formula
+class FrodoCliNext < Formula
   desc "Command-line interface to manage ForgeRock Identity Cloud"
   homepage "https://github.com/rockcarver/frodo-cli#readme"
   url "https://github.com/rockcarver/frodo-cli.git",
     branch: "main",
-    tag: "v1.0.1"
+    tag: "v2.0.0-30"
   license "MIT"
   head "https://github.com/rockcarver/frodo-cli.git", branch: "main"
 
@@ -18,11 +18,10 @@ class FrodoCli < Formula
 
   def install
     if File.exists?("#{HOMEBREW_PREFIX}/bin/frodo")
-      # ohai "frodo binary exists"
       existingTest=`#{HOMEBREW_PREFIX}/bin/frodo -v` =~ /^cli: v.+-.+\nlib.*/
-      odie "frodo-cli next/latest/unstable pre-release already installed, run 'brew uninstall frodo-cli-next' first and then re-install this." unless existingTest.nil?
+      odie "frodo-cli STABLE already installed, run 'brew uninstall frodo-cli' first and then re-install this." if existingTest.nil?
     end
-    ohai "Installing STABLE release of #{name}"
+    ohai "Installing next/latest/unstable pre-release of #{name}"
     system "npm", "install"
     system "npm", "run", "build:binary"
     odie "homebrew install: frodo binary not found, possible cause is that the build step failed..." if (!File.exists?("#{buildpath}/frodo"))
@@ -34,7 +33,7 @@ class FrodoCli < Formula
     # on_macos do
     bin.install Dir["#{buildpath}/frodo"]
     # end
-    ohai "Installed STABLE release of #{name}"
+    ohai "Installed next/latest/unstable pre-release of #{name}"
   end
 
   test do

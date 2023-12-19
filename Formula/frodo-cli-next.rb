@@ -5,7 +5,7 @@ class FrodoCliNext < Formula
   homepage "https://github.com/rockcarver/frodo-cli#readme"
   url "https://github.com/rockcarver/frodo-cli.git",
     branch: "main",
-    tag: "v2.0.0-38"
+    tag: "v2.0.0-39"
   license "MIT"
   head "https://github.com/rockcarver/frodo-cli.git", branch: "main"
 

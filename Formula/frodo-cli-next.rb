@@ -17,14 +17,14 @@ class FrodoCliNext < Formula
   depends_on "node@18"
 
   def install
-    if File.exists?("#{HOMEBREW_PREFIX}/bin/frodo")
+    if File.exist?("#{HOMEBREW_PREFIX}/bin/frodo")
       existingTest=`#{HOMEBREW_PREFIX}/bin/frodo -v` =~ /^cli: v.+-.+\nlib.*/
       odie "frodo-cli STABLE already installed, run 'brew uninstall frodo-cli' first and then re-install this." if existingTest.nil?
     end
     ohai "Installing next/latest/unstable pre-release of #{name}"
     system "npm", "install"
     system "npm", "run", "build:binary"
-    odie "homebrew install: frodo binary not found, possible cause is that the build step failed..." if (!File.exists?("#{buildpath}/frodo"))
+    odie "homebrew install: frodo binary not found, possible cause is that the build step failed..." if (!File.exist?("#{buildpath}/frodo"))
     output = `#{buildpath}/frodo -v`
     odie "homebrew install: running \"frodo -v\" failed" if !output.match(/You are running the binary release.\nInstalled versions:\ncli: v\d\.\d\.\d.*/)
     ret = `#{buildpath}/frodo -h 2>/dev/null`

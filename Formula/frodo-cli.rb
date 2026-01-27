@@ -14,7 +14,7 @@ class FrodoCli < Formula
     regex(/^v?(\d+(?:\.\d+)+)$/i)
   end
 
-  depends_on "node@18"
+  depends_on "node@24"
 
   def install
     if File.exist?("#{HOMEBREW_PREFIX}/bin/frodo")

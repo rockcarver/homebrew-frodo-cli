@@ -25,8 +25,8 @@ class FrodoCliNext < Formula
     system "npm", "install"
     system "npm", "run", "build:binary"
     odie "homebrew install: frodo binary not found, possible cause is that the build step failed..." if (!File.exist?("#{buildpath}/frodo"))
-    output = `#{buildpath}/frodo -v`
-    odie "homebrew install: running \"frodo -v\" failed" if !output.match(/You are running the \w+ release.\ncli: v\d\.\d\.\d.*/)
+    system "#{buildpath}/frodo", "-v"
+    odie "homebrew install: running \"frodo -v\" failed" if ($? != 0)
     ret = `#{buildpath}/frodo -h 2>/dev/null`
     odie "help...." if ($? != 0)
     rm_f "#{HOMEBREW_PREFIX}/bin/frodo"

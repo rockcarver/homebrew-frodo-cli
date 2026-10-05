@@ -38,7 +38,7 @@ class FrodoCliNext < Formula
   end
 
   on_linux do
-    if Hardware::CPU.x86_64?
+    if Hardware::CPU.intel?
       url "https://github.com/rockcarver/frodo-cli/releases/download/v5.0.0-2/frodo-linux-x64-5.0.0-2.zip"
       sha256 "89070fbe3a84c1a2708bdda8ce8b0f10c17f0eacfd1561f74147bf439be6c393"
     end

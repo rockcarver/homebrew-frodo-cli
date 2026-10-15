@@ -1,7 +1,7 @@
 class FrodoCliNext < Formula
   desc "Command-line interface to manage ForgeRock Identity Cloud"
   homepage "https://github.com/rockcarver/frodo-cli#readme"
-  version "5.0.0-8"
+  version "5.0.0-9"
   license "MIT"
 
   livecheck do
@@ -18,29 +18,29 @@ class FrodoCliNext < Formula
 
   on_macos do
     if Hardware::CPU.arm64?
-      url "https://github.com/rockcarver/frodo-cli/releases/download/v5.0.0-8/frodo-macos-arm64-5.0.0-8.zip"
-      sha256 "bc04be58ebce4190be052f4c8a6c9b4b78e9abd308b393366f9168cbb79e4bd3"
+      url "https://github.com/rockcarver/frodo-cli/releases/download/v5.0.0-9/frodo-macos-arm64-5.0.0-9.zip"
+      sha256 "58cd72f5e18e00b231f19088b556900428c3a8a90d4a2658f6ad423e444ef81f"
     end
   end
 
   on_macos do
     if Hardware::CPU.intel?
-      url "https://github.com/rockcarver/frodo-cli/releases/download/v5.0.0-8/frodo-macos-intel-5.0.0-8.zip"
-      sha256 "2e9fb00f555d451d13f8e23341479a780113f38dd593766a4229f81c68bca62e"
+      url "https://github.com/rockcarver/frodo-cli/releases/download/v5.0.0-9/frodo-macos-intel-5.0.0-9.zip"
+      sha256 "179b7b41340ca4cd55fe14e4c222d3897e8a3ed0065b70d3690bab67a593bea0"
     end
   end
 
   on_linux do
     if Hardware::CPU.arm64?
-      url "https://github.com/rockcarver/frodo-cli/releases/download/v5.0.0-8/frodo-linux-arm64-5.0.0-8.zip"
-      sha256 "907e76cfad04b67092a9247c9dcec4f4fc5453d93d1668b6201ed0d1f6ab95eb"
+      url "https://github.com/rockcarver/frodo-cli/releases/download/v5.0.0-9/frodo-linux-arm64-5.0.0-9.zip"
+      sha256 "937729d6472ed32154010767d9079a3b9bc59d14ba98d3902aa0c5b05c3fad71"
     end
   end
 
   on_linux do
     if Hardware::CPU.intel?
-      url "https://github.com/rockcarver/frodo-cli/releases/download/v5.0.0-8/frodo-linux-x64-5.0.0-8.zip"
-      sha256 "bb0154f8f21b46b4cd3b325736c31c899e1f1cf42ea7c7c3838ffc0820758064"
+      url "https://github.com/rockcarver/frodo-cli/releases/download/v5.0.0-9/frodo-linux-x64-5.0.0-9.zip"
+      sha256 "d25aee6d0f73c37ae1fed68f181113406ab6fcd5daf5f891cbe82f0016edf9ec"
     end
   end
   def pre_install_guard

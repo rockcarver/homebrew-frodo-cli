@@ -8,7 +8,7 @@ This folder holds the decisions that concern **this tap only**. There are none y
 
 - An accepted record is binding for humans and agents until a newer record supersedes it. An agent whose task conflicts with one stops and says so in the issue or pull request.
 - Only lasting decisions get a record: something you would be surprised to see reversed without discussion. Not minor implementation notes or routine refactors.
-- An accepted record is not edited, except for typos. A changed decision is a new record: set the old record's status to `superseded by NNNN` and update the index.
+- An accepted record is not edited, except for typos and for a `Known deviations` section, a status note that may be added, edited or removed, without a new record, in the pull request that fixes the deviation or opens its tracking issue ([core 0018](core/0018-core-decision-records-are-kept-in-each-repository.md)). A changed decision is a new record: set the old record's status to `superseded by NNNN` and update the index.
 - A pull request that changes a decided behaviour adds or supersedes a record in the same pull request.
 - Records are public. No credentials, tenant names, security-incident details or personal information.
 - `applies-to:` lists path globs where that helps; `issues:` lists related issues as `owner/repo#N`.
@@ -28,7 +28,7 @@ The records below are numbered apart from this folder's own records, and a chang
 | [core 0003](core/0003-guidance-for-agents-and-contributors-lives-in-the-repository.md) | Guidance for agents and contributors lives in the repository | accepted | repository-wide | `AGENTS.md` is the single entry point and `CLAUDE.md` only imports it; accepted decision records bind humans and agents; guidance is public, with no credentials or tenant details. |
 | [core 0008](core/0008-homebrew-installs-prebuilt-release-binaries.md) | Homebrew installs prebuilt release binaries | accepted | `Formula/**`, `tools/update-homebrew-formula.mjs` | Homebrew formulas install the prebuilt release zip pinned by sha256; `tools/update-homebrew-formula.mjs` generates them and the pipeline commits them to the tap, never by hand. |
 | [core 0017](core/0017-security-reports-and-fixes-are-handled-privately-by-a-maintainer.md) | Security reports and fixes are handled privately by a maintainer | accepted | `SECURITY.md`, `.claude/skills/triage-a-security-report/**` | Suspected vulnerabilities are reported privately (see `SECURITY.md`); a maintainer owns security reports and unsolicited security fixes, and coding agents and the Concierge do not act on them. |
-| [core 0018](core/0018-core-decision-records-are-kept-in-each-repository.md) | Core decision records are kept in each repository | accepted | `docs/decisions/core/**`, `decisions/core/**` | A decision that binds more than one repository is one identical file in `core/` of every repository it binds, cited as "core NNNN"; a weekly check compares the copies and the umbrella repository is archived. |
+| [core 0018](core/0018-core-decision-records-are-kept-in-each-repository.md) | Core decision records are kept in each repository | accepted | `docs/decisions/core/**`, `decisions/core/**` | A decision that binds more than one repository is one identical file in `core/` of every repository it binds, cited as "core NNNN"; a weekly check compares the copies, a Known deviations section is a status note the pull request that fixes the deviation may edit, and the umbrella repository is archived. |
 
 ## Index
 

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { validateDecisionRecords, THIS_REPO } from './validate-decision-records.mjs';
 
 const RECORD = (n, extra = {}) => {
@@ -154,4 +155,23 @@ test('core: a link in the text above the table does not count as the row', () =>
   const link = '[core 0003](core/0003-third-thing.md)';
   has(checkCore((f) => { f['README.md'] = CORE_README([CORE_ROWS[1]], `See ${link}.`); }), 'has no row linking core/0003-third-thing.md');
   assert.deepEqual(checkCore((f) => { f['README.md'] = CORE_README(CORE_ROWS, `See ${link}.`); }), []);
+});
+
+// A Known deviations section is a status note (core 0018): pin the real files.
+const REAL = (rel) => fs.readFileSync(fileURLToPath(new URL(`../../${rel}`, import.meta.url)), 'utf8');
+test('known deviations: core 0018 lets the pull request that fixes a deviation edit or remove it', () => {
+  const rule = REAL('docs/decisions/core/0018-core-decision-records-are-kept-in-each-repository.md');
+  assert.match(rule, /status note, not part of the decision/);
+  assert.match(rule, /tracking issue and the commit it was written against/);
+  assert.match(rule, /added, edited or removed, without a new record, in the pull request that fixes the deviation or opens its tracking issue/);
+  assert.match(rule, /Nothing else in an accepted record changes\./);
+  assert.match(rule, /The one exception is a Known deviations section/);
+});
+test('known deviations: the README rule names the exception and links core 0018', () => {
+  const readme = REAL('docs/decisions/README.md');
+  const line = readme.split('\n').find((l) => l.startsWith('- An accepted record is not edited')) ?? '';
+  assert.match(line, /except for typos and for a `Known deviations` section/);
+  assert.match(line, /\]\(core\/0018-core-decision-records-are-kept-in-each-repository\.md\)/);
+  const row = readme.split('\n').find((l) => /^\|\s*\[core 0018\]\(/.test(l)) ?? '';
+  assert.match(row, /Known deviations section is a status note/);
 });

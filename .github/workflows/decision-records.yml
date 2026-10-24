@@ -1,17 +1,21 @@
 name: Decision records
 
-# Validates the front matter, sections and index of docs/decisions. No dependencies.
+# Validates the front matter, sections and index of docs/decisions and its core/ folder, and
+# self-tests the validator and the core records drift check. No dependencies.
 on:
   pull_request:
     paths:
       - 'docs/decisions/**'
       - '.github/scripts/validate-decision-records.*'
+      - '.github/scripts/check-core-records-drift.*'
       - '.github/workflows/decision-records.yml'
+      - '.github/workflows/core-records-drift.yml'
   push:
     branches: [main]
     paths:
       - 'docs/decisions/**'
       - '.github/scripts/validate-decision-records.*'
+      - '.github/scripts/check-core-records-drift.*'
 
 permissions:
   contents: read
@@ -26,7 +30,7 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-      - name: Self-test the validator
-        run: node --test .github/scripts/validate-decision-records.test.mjs
+      - name: Self-test the validator and the drift check
+        run: node --test .github/scripts/validate-decision-records.test.mjs .github/scripts/check-core-records-drift.test.mjs
       - name: Validate the records
         run: node .github/scripts/validate-decision-records.mjs docs/decisions

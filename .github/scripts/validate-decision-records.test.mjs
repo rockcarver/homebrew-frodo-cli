@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { validateDecisionRecords } from './validate-decision-records.mjs';
+import { validateDecisionRecords, THIS_REPO } from './validate-decision-records.mjs';
 
 const RECORD = (n, extra = {}) => {
   const fm = {
@@ -83,4 +83,75 @@ test('the README index lists every record with its status and nothing else', () 
   has(check((f) => { f['README.md'] = README(['| 0001 | [First](0001-first-thing.md) | accepted |']); }), 'no row linking 0002-second-thing.md');
   has(check((f) => { f['README.md'] = README(['| 0001 | [First](0001-first-thing.md) | proposed |', '| 0002 | [Second](0002-second-thing.md) | accepted |']); }), 'does not show the status');
   has(check((f) => { f['README.md'] = README(['| 0001 | [First](0001-first-thing.md) | accepted |', '| 0002 | [Second](0002-second-thing.md) | accepted |', '| 0003 | [Ghost](0003-ghost.md) | accepted |']); }), 'which does not exist');
+});
+
+// Core records (core 0018): one identical file per repository it binds, held in <dir>/core.
+// This repository holds only the ones that bind it plus core 0018, so numbers have gaps.
+const TAP = THIS_REPO;
+const CORE_ROW = (n, file, status = 'accepted') => `| [core ${n}](core/${file}) | T | ${status} | repository-wide | r |`;
+const CORE_README = (rows, intro = '') => ['# Decisions', '', intro, '', '## Core decisions', '', '| Number | Title | Status | Applies to | Rule |', '| - | - | - | - | - |', ...rows, '', '## Index', '', '| # | Title | Status |', '| - | - | - |', ''].join('\n');
+const CORE_FILES = { '0003-third-thing.md': RECORD(3, { list_repos: ['rockcarver/frodo-cli', TAP] }), '0018-rule-thing.md': RECORD(18, { list_repos: ['rockcarver/frodo-cli', 'rockcarver/frodo-lib'] }) };
+const CORE_ROWS = [CORE_ROW('0003', '0003-third-thing.md'), CORE_ROW('0018', '0018-rule-thing.md')];
+
+function coreFixture(mutate = () => {}) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'decisions-core-'));
+  fs.mkdirSync(path.join(dir, 'core'));
+  const files = { 'template.md': '---\nstatus: proposed\n---\n', 'README.md': CORE_README([...CORE_ROWS]) };
+  const core = { ...CORE_FILES };
+  mutate(files, core);
+  for (const [name, text] of Object.entries(files)) if (text !== null) fs.writeFileSync(path.join(dir, name), text);
+  for (const [name, text] of Object.entries(core)) if (text !== null) fs.writeFileSync(path.join(dir, 'core', name), text);
+  return dir;
+}
+const checkCore = (mutate) => validateDecisionRecords({ dir: coreFixture(mutate) });
+
+test('core: a folder with the records that bind this tap and core 0018 is valid, gaps and all', () => {
+  assert.deepEqual(checkCore(() => {}), []);
+});
+test('core: a directory without core/ is checked as before', () => {
+  assert.deepEqual(check(() => {}), []);
+});
+test('core: its numbers are apart from the repository\'s own records', () => {
+  const dir = coreFixture((f) => {
+    f['0001-own-thing.md'] = RECORD(1);
+    f['README.md'] = CORE_README(CORE_ROWS).replace('| - | - | - |\n', '| - | - | - |\n| 0001 | [Own](0001-own-thing.md) | accepted |\n');
+  });
+  assert.deepEqual(validateDecisionRecords({ dir }), []);
+});
+test('core: core 0018, the rule for core records, must be held', () => {
+  has(checkCore((f, c) => { delete c['0018-rule-thing.md']; f['README.md'] = CORE_README([CORE_ROWS[0]]); }), 'core 0018, the rule for core records, is missing');
+});
+test('core: file names and numbers', () => {
+  has(checkCore((f, c) => { c['0009_Bad Name.md'] = RECORD(9); }), 'the name must be NNNN-short-title.md');
+  has(checkCore((f, c) => { c['0003-other-thing.md'] = RECORD(3, { list_repos: [TAP] }); f['README.md'] = CORE_README([...CORE_ROWS, CORE_ROW('0003', '0003-other-thing.md')]); }), 'used twice');
+});
+test('core: front matter is as strict as for the repository\'s own records, and repos is required', () => {
+  has(checkCore((f, c) => { c['0003-third-thing.md'] = 'no front matter\n'; }), 'must start with a front matter block');
+  has(checkCore((f, c) => { c['0003-third-thing.md'] = c['0003-third-thing.md'].replace(/repos:[\s\S]*?\n---/, '---'); }), 'missing front matter key "repos"');
+  has(checkCore((f, c) => { c['0003-third-thing.md'] = c['0003-third-thing.md'].replace('date: 2026-10-24', 'date: 2026-02-30'); }), 'real YYYY-MM-DD date');
+  has(checkCore((f, c) => { c['0003-third-thing.md'] = c['0003-third-thing.md'].replace('status: accepted', 'status: maybe'); f['README.md'] = CORE_README([CORE_ROW('0003', '0003-third-thing.md', 'maybe'), CORE_ROWS[1]]); }), 'must be one of');
+});
+test('core: repos names must be well formed and list this tap (except core 0018)', () => {
+  has(checkCore((f, c) => { c['0003-third-thing.md'] = RECORD(3, { list_repos: ['rockcarver/frodo-cli', TAP, 'not a repo'] }); }), 'must be owner/name');
+  has(checkCore((f, c) => { c['0003-third-thing.md'] = RECORD(3, { list_repos: ['rockcarver/frodo-cli', 'rockcarver/frodo-lib'] }); }), `does not list ${TAP}`);
+  assert.deepEqual(checkCore((f, c) => { c['0018-rule-thing.md'] = RECORD(18, { list_repos: ['rockcarver/frodo-cli'] }); }), []);
+});
+test('core: a record may be superseded by one this repository does not hold', () => {
+  const superseded = (c) => { c['0003-third-thing.md'] = RECORD(3, { status: 'superseded by 0042', list_repos: [TAP] }); };
+  assert.deepEqual(checkCore((f, c) => { superseded(c); f['README.md'] = CORE_README([CORE_ROW('0003', '0003-third-thing.md', 'superseded by 0042'), CORE_ROWS[1]]); }), []);
+  has(checkCore((f, c) => { c['0003-third-thing.md'] = RECORD(3, { status: 'superseded by 0003', list_repos: [TAP] }); f['README.md'] = CORE_README([CORE_ROW('0003', '0003-third-thing.md', 'superseded by 0003'), CORE_ROWS[1]]); }), 'cannot supersede itself');
+});
+test('core: records stay short and carry no credentials', () => {
+  has(checkCore((f, c) => { c['0003-third-thing.md'] += 'filler\n'.repeat(70); }), 'longer than');
+  has(checkCore((f, c) => { c['0003-third-thing.md'] += 'token ghp_' + 'a'.repeat(30) + '\n'; }), 'credential');
+});
+test('core: the "Core decisions" table lists every core file with its status and nothing else', () => {
+  has(checkCore((f) => { f['README.md'] = CORE_README([CORE_ROWS[1]]); }), 'has no row linking core/0003-third-thing.md');
+  has(checkCore((f) => { f['README.md'] = CORE_README([CORE_ROW('0003', '0003-third-thing.md', 'proposed'), CORE_ROWS[1]]); }), 'does not show the status "accepted"');
+  has(checkCore((f) => { f['README.md'] = CORE_README([...CORE_ROWS, CORE_ROW('0099', '0099-ghost.md')]); }), 'links core/0099-ghost.md, which does not exist');
+});
+test('core: a link in the text above the table does not count as the row', () => {
+  const link = '[core 0003](core/0003-third-thing.md)';
+  has(checkCore((f) => { f['README.md'] = CORE_README([CORE_ROWS[1]], `See ${link}.`); }), 'has no row linking core/0003-third-thing.md');
+  assert.deepEqual(checkCore((f) => { f['README.md'] = CORE_README(CORE_ROWS, `See ${link}.`); }), []);
 });

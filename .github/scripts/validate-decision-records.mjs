@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Validates decision records (see decisions/README.md or docs/decisions/README.md).
 // No dependencies. Usage: node validate-decision-records.mjs <dir> [--repos]
+// <dir>/core, when it exists, holds core records and is checked too (see validateCoreRecords).
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -20,6 +21,12 @@ const MAX_LINES = 60;
 const RECORD_FILE = /^(\d{4})-([a-z0-9]+(?:-[a-z0-9]+)*)\.md$/;
 const SECRET =
   /(ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|-----BEGIN [A-Z ]*PRIVATE KEY-----|AKIA[0-9A-Z]{16}|xox[baprs]-[A-Za-z0-9-]{10,})/;
+const REPO_NAME = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
+
+// This tap holds only the core records that bind it, plus core 0018, the rule
+// for core records, which every repository with a core/ folder holds.
+export const THIS_REPO = 'rockcarver/homebrew-frodo-cli';
+export const RULE_RECORD = '0018';
 
 /** Splits a record into its front matter (flat keys, lists as "- item" lines) and body. */
 export function parseFrontMatter(text) {
@@ -57,6 +64,58 @@ function validDate(value) {
   return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === value;
 }
 
+/**
+ * Checks one record file: length, credentials, front matter and sections.
+ * Pushes "<file>: <problem>" lines to `problems`. `supersedeTarget(n)` says
+ * whether a "superseded by NNNN" target exists. Returns the record's status
+ * (or undefined when the front matter is unreadable).
+ */
+function checkRecord({ file, number, text, requireRepos, supersedeTarget, problems, extra }) {
+  const fail = (msg) => problems.push(`${file}: ${msg}`);
+  if (text.split('\n').filter((l, i, a) => i < a.length - 1 || l !== '').length > MAX_LINES) fail(`longer than ${MAX_LINES} lines`);
+  if (SECRET.test(text)) fail('looks like it contains a credential');
+  const fm = parseFrontMatter(text);
+  if (fm.error) {
+    fail(fm.error);
+    return undefined;
+  }
+  const { data, body } = fm;
+  for (const key of Object.keys(data)) {
+    if (!KEYS.includes(key)) fail(`unknown front matter key "${key}"`);
+    else if (LIST_KEYS.has(key) !== Array.isArray(data[key])) fail(`"${key}" must be ${LIST_KEYS.has(key) ? 'a list' : 'a single value'}`);
+    else if (Array.isArray(data[key]) && data[key].length === 0) fail(`"${key}" must not be empty`);
+  }
+  for (const key of ['status', 'date', 'decision-makers', ...(requireRepos ? ['repos'] : [])]) {
+    if (!(key in data)) fail(`missing front matter key "${key}"`);
+  }
+  if (typeof data.status === 'string') {
+    const sup = data.status.match(/^superseded by (\d{4})$/);
+    if (sup) {
+      if (!supersedeTarget(Number(sup[1]))) fail(`superseded by ${sup[1]}, which does not exist`);
+      else if (Number(sup[1]) === number) fail('cannot supersede itself');
+    } else if (!STATUSES.includes(data.status)) {
+      fail(`status "${data.status}" must be one of ${STATUSES.join(', ')} or "superseded by NNNN"`);
+    }
+  }
+  if (typeof data.date === 'string' && !validDate(data.date)) fail(`date "${data.date}" must be a real YYYY-MM-DD date`);
+  const first = body.find((l) => l.trim() !== '');
+  if (!first || !/^# \S/.test(first)) fail('the body must start with a "# Title" heading');
+  const headings = body.filter((l) => /^## /.test(l)).map((l) => l.slice(3).trim());
+  for (const h of headings) if (!SECTIONS.includes(h)) fail(`unknown section "## ${h}"`);
+  for (const h of REQUIRED_SECTIONS) if (!headings.includes(h)) fail(`missing section "## ${h}"`);
+  const order = headings.filter((h) => SECTIONS.includes(h)).map((h) => SECTIONS.indexOf(h));
+  if (order.some((v, i) => i > 0 && v <= order[i - 1])) fail('sections are out of order or repeated');
+  body.forEach((l, i) => {
+    if (!/^## /.test(l)) return;
+    const rest = body.slice(i + 1);
+    const next = rest.findIndex((x) => /^## /.test(x));
+    const content = (next < 0 ? rest : rest.slice(0, next)).filter((x) => x.trim() !== '');
+    if (content.length === 0) fail(`section "${l.trim()}" is empty`);
+  });
+  if (extra) extra({ data, fail });
+  return typeof data.status === 'string' ? data.status : undefined;
+}
+
 /** Returns a list of problems, empty when every record is valid. */
 export function validateDecisionRecords({ dir, requireRepos = false }) {
   const problems = [];
@@ -87,48 +146,7 @@ export function validateDecisionRecords({ dir, requireRepos = false }) {
   const statusOf = {};
   for (const { file, number } of records) {
     const text = fs.readFileSync(path.join(dir, file), 'utf8');
-    const fail = (msg) => problems.push(`${file}: ${msg}`);
-    if (text.split('\n').filter((l, i, a) => i < a.length - 1 || l !== '').length > MAX_LINES) fail(`longer than ${MAX_LINES} lines`);
-    if (SECRET.test(text)) fail('looks like it contains a credential');
-    const fm = parseFrontMatter(text);
-    if (fm.error) {
-      fail(fm.error);
-      continue;
-    }
-    const { data, body } = fm;
-    for (const key of Object.keys(data)) {
-      if (!KEYS.includes(key)) fail(`unknown front matter key "${key}"`);
-      else if (LIST_KEYS.has(key) !== Array.isArray(data[key])) fail(`"${key}" must be ${LIST_KEYS.has(key) ? 'a list' : 'a single value'}`);
-      else if (Array.isArray(data[key]) && data[key].length === 0) fail(`"${key}" must not be empty`);
-    }
-    for (const key of ['status', 'date', 'decision-makers', ...(requireRepos ? ['repos'] : [])]) {
-      if (!(key in data)) fail(`missing front matter key "${key}"`);
-    }
-    if (typeof data.status === 'string') {
-      statusOf[file] = data.status;
-      const sup = data.status.match(/^superseded by (\d{4})$/);
-      if (sup) {
-        if (!numberSet.has(Number(sup[1]))) fail(`superseded by ${sup[1]}, which does not exist`);
-        else if (Number(sup[1]) === number) fail('cannot supersede itself');
-      } else if (!STATUSES.includes(data.status)) {
-        fail(`status "${data.status}" must be one of ${STATUSES.join(', ')} or "superseded by NNNN"`);
-      }
-    }
-    if (typeof data.date === 'string' && !validDate(data.date)) fail(`date "${data.date}" must be a real YYYY-MM-DD date`);
-    const first = body.find((l) => l.trim() !== '');
-    if (!first || !/^# \S/.test(first)) fail('the body must start with a "# Title" heading');
-    const headings = body.filter((l) => /^## /.test(l)).map((l) => l.slice(3).trim());
-    for (const h of headings) if (!SECTIONS.includes(h)) fail(`unknown section "## ${h}"`);
-    for (const h of REQUIRED_SECTIONS) if (!headings.includes(h)) fail(`missing section "## ${h}"`);
-    const order = headings.filter((h) => SECTIONS.includes(h)).map((h) => SECTIONS.indexOf(h));
-    if (order.some((v, i) => i > 0 && v <= order[i - 1])) fail('sections are out of order or repeated');
-    body.forEach((l, i) => {
-      if (!/^## /.test(l)) return;
-      const rest = body.slice(i + 1);
-      const next = rest.findIndex((x) => /^## /.test(x));
-      const content = (next < 0 ? rest : rest.slice(0, next)).filter((x) => x.trim() !== '');
-      if (content.length === 0) fail(`section "${l.trim()}" is empty`);
-    });
+    statusOf[file] = checkRecord({ file, number, text, requireRepos, supersedeTarget: (n) => numberSet.has(n), problems });
   }
   for (const { file } of records) {
     const row = readme.split('\n').find((l) => l.includes(`(${file})`));
@@ -137,6 +155,68 @@ export function validateDecisionRecords({ dir, requireRepos = false }) {
   }
   for (const link of readme.matchAll(/\((\d{4}-[a-z0-9-]+\.md)\)/g)) {
     if (!records.some((r) => r.file === link[1])) problems.push(`README.md: the index links ${link[1]}, which does not exist`);
+  }
+  if (fs.existsSync(path.join(dir, 'core'))) problems.push(...validateCoreRecords({ dir, readme }));
+  return problems;
+}
+
+/**
+ * Checks <dir>/core, the core records held by this repository (core 0018).
+ * A core record is one file kept identical in every repository it binds, so
+ * this repository holds only the ones that bind it, and the numbers have gaps
+ * (they are never reused and never need to be contiguous here). Each file:
+ * has the usual front matter plus `repos:` (well-formed names; it must list
+ * this repository unless it is core 0018, which every holder keeps), and a row
+ * in the "Core decisions" table of README.md that links it and shows its
+ * status. `superseded by NNNN` only has to be well-formed, since the record
+ * that supersedes may bind other repositories only.
+ */
+export function validateCoreRecords({ dir, readme }) {
+  const problems = [];
+  const coreDir = path.join(dir, 'core');
+  const text = readme ?? (fs.existsSync(path.join(dir, 'README.md')) ? fs.readFileSync(path.join(dir, 'README.md'), 'utf8') : '');
+  const files = fs.readdirSync(coreDir).filter((f) => f.endsWith('.md')).sort();
+  const records = [];
+  for (const file of files) {
+    const m = file.match(RECORD_FILE);
+    if (!m) {
+      problems.push(`core/${file}: the name must be NNNN-short-title.md (lower case, hyphens)`);
+      continue;
+    }
+    records.push({ file, number: Number(m[1]), id: m[1] });
+  }
+  const numbers = records.map((r) => r.number);
+  numbers.forEach((n, i) => {
+    if (numbers.indexOf(n) !== i) problems.push(`core: number ${String(n).padStart(4, '0')} is used twice`);
+  });
+  if (!records.some((r) => r.id === RULE_RECORD)) problems.push(`core: core ${RULE_RECORD}, the rule for core records, is missing`);
+  const statusOf = {};
+  for (const { file, number, id } of records) {
+    const body = fs.readFileSync(path.join(coreDir, file), 'utf8');
+    statusOf[file] = checkRecord({
+      file: `core/${file}`,
+      number,
+      text: body,
+      requireRepos: true,
+      supersedeTarget: () => true,
+      problems,
+      extra: ({ data, fail }) => {
+        const repos = Array.isArray(data.repos) ? data.repos : [];
+        for (const r of repos) if (!REPO_NAME.test(r)) fail(`repos entry "${r}" must be owner/name`);
+        if (repos.length > 0 && id !== RULE_RECORD && !repos.includes(THIS_REPO)) {
+          fail(`repos does not list ${THIS_REPO}: this repository holds only the core records that bind it (and core ${RULE_RECORD})`);
+        }
+      },
+    });
+  }
+  for (const { file } of records) {
+    // A table row only: the text above the table may link the same file.
+    const row = text.split('\n').find((l) => l.startsWith('|') && l.includes(`(core/${file})`));
+    if (!row) problems.push(`README.md: the "Core decisions" table has no row linking core/${file}`);
+    else if (statusOf[file] && !row.includes(statusOf[file])) problems.push(`README.md: the "Core decisions" row for core/${file} does not show the status "${statusOf[file]}"`);
+  }
+  for (const link of text.matchAll(/\(core\/(\d{4}-[a-z0-9-]+\.md)\)/g)) {
+    if (!records.some((r) => r.file === link[1])) problems.push(`README.md: the "Core decisions" table links core/${link[1]}, which does not exist`);
   }
   return problems;
 }

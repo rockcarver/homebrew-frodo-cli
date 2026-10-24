@@ -1,0 +1,65 @@
+# PR ready signal. Plain GitHub Actions, no LLM. See docs/multi-phase-design.md, "PR gate".
+#
+# The PR gate starts when a pull request carries `pr-worker-ready`. The coding agent is
+# told to add it but its GitHub tools do not write labels, so this workflow adds it for
+# the agent, with SIGNAL_TOKEN so the label event starts PR triage.
+#
+# How it learns the agent has finished: a sweep every 15 minutes reads each open coding
+# agent pull request's timeline (`copilot_work_started` and `copilot_work_finished`) and
+# signals when the latest session has finished and no `pr-worker-ready` label has been
+# applied since. That needs no event from the agent. Why not events (measured on
+# frodo-lib#771): the agent's review request starts a run that waits for a maintainer's
+# approval like any run the agent causes, and `workflow_run` is never delivered for the
+# agent's own "dynamic" runs. Triggers:
+#   schedule          the sweep above (up to 15 minutes after the agent finishes)
+#   ready_for_review  a maintainer took the draft out of draft
+#   workflow_dispatch a person runs it: with a pull request number for that one, without
+#                     one for a sweep (and dry_run to only report)
+#
+# Install: copy this file to .github/workflows/pr-ready-signal.yml and
+# scripts/pr-ready-signal.mjs to .github/scripts/pr-ready-signal.mjs (it imports
+# janitor.mjs, so install that too). Needs the repository secret SIGNAL_TOKEN with
+# Issues and Pull requests: Read and write (a pull request is labelled through the issues API).
+name: "Concierge 3b ▸ PR Ready Signal"
+
+on:
+  pull_request_target:
+    types: [ready_for_review]
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "Signal this pull request (leave empty to sweep every open coding agent pull request)"
+        required: false
+        type: string
+      dry_run:
+        description: "Report what would happen, change nothing"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  pull-requests: read
+  issues: read
+
+concurrency:
+  group: pr-ready-signal-${{ github.event.pull_request.number || inputs.pr_number || 'sweep' }}
+  cancel-in-progress: false
+
+jobs:
+  signal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Signal that pull requests are ready for triage
+        env:
+          GH_TOKEN: ${{ github.token }}
+          # Label changes made with this token start PR triage.
+          SIGNAL_TOKEN: ${{ secrets.SIGNAL_TOKEN }}
+          TRIGGER: ${{ github.event_name == 'workflow_dispatch' && 'manual' || github.event.action }}
+          PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr_number }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: node .github/scripts/pr-ready-signal.mjs

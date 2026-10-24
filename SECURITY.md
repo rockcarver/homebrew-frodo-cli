@@ -15,7 +15,7 @@ Include, as far as you can:
 
 ## Scope and threat model
 
-This repository is the Homebrew tap for Frodo. Its formulae install [frodo-cli](https://github.com/rockcarver/frodo-cli): the prerelease formula downloads the release's prebuilt binaries with pinned checksums, and the stable formula is moving to the same form (decision record 0008 in the [umbrella repository](https://github.com/rockcarver/frodo/tree/main/docs/decisions)). In scope are problems with the formulae themselves and with how they fetch and verify what they install: a wrong download location, a missing or wrong checksum, or a way for someone else to change what a formula installs.
+This repository is the Homebrew tap for Frodo. Its formulae install [frodo-cli](https://github.com/rockcarver/frodo-cli): the prerelease formula downloads the release's prebuilt binaries with pinned checksums, and the stable formula is moving to the same form ([core 0008](docs/decisions/core/0008-homebrew-installs-prebuilt-release-binaries.md)). In scope are problems with the formulae themselves and with how they fetch and verify what they install: a wrong download location, a missing or wrong checksum, or a way for someone else to change what a formula installs.
 
 The threat model of the CLI itself (who is trusted, what counts as attacker input) is in the [frodo-cli security policy](https://github.com/rockcarver/frodo-cli/security/policy). Report problems in the CLI or its MCP server there.
 

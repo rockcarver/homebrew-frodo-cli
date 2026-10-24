@@ -1,0 +1,37 @@
+# Deployment check. Plain GitHub Actions, no LLM. See docs/deployment.md.
+#
+# Fails when the compiled workflows cannot do what
+# .github/agentic-workflows/related-repos.md promises: for every related
+# repository that names a secret, the issue worker must be able to create
+# issues there and the related-repo closer to comment, label and close there.
+# It also prints notices, and never fails, when the repository has neither
+# AGENTS.md nor .github/copilot-instructions.md (template: shared/agents.md) and
+# when it has no docs/decisions/ folder (or decisions/ at the repository root
+# when docs/ is generated) of decision records (template:
+# shared/decision-record.md).
+#
+# Install: copy this file to .github/workflows/check-deployment.yml and
+# scripts/check-deployment.mjs (plus scripts/dependency-watch.mjs, which it
+# imports) to .github/scripts/.
+name: "Concierge 4f ▸ Check Deployment"
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/*.md'
+      - '.github/workflows/*.lock.yml'
+      - '.github/agentic-workflows/**'
+      - '.github/scripts/check-deployment.mjs'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Check cross-repository configuration
+        run: node .github/scripts/check-deployment.mjs
